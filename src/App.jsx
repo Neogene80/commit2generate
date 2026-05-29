@@ -16,6 +16,17 @@ const RED = "#fca5a5";
 const COLORS = ["#F97316","#FB923C","#FDBA74","#FED7AA","#FCA5A5","#F87171","#EF4444","#DC2626","#B91C1C","#7F1D1D","#A16207","#CA8A04"];
 const MEDAL = ["🥇","🥈","🥉"];
 
+const LIGHT = {
+  bg: "#F8F8F8", surface: "#FFFFFF", border: "#E5E5E5",
+  border2: "#EFEFEF", text: "#111111", textSub: "#666666",
+  textMuted: "#AAAAAA", chartBg: "#F0F0F0",
+};
+const DARK = {
+  bg: "#0A0A0A", surface: "#111111", border: "#222222",
+  border2: "#1A1A1A", text: "#F5F5F5", textSub: "#666666",
+  textMuted: "#444444", chartBg: "#2A2A2A",
+};
+
 function getMondayOfWeek(date = new Date()) {
   const d = new Date(date);
   const day = d.getDay();
@@ -29,7 +40,6 @@ function formatWeek(dateStr) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-// Animated counter hook
 function useAnimatedCounter(target, duration = 800) {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -46,7 +56,6 @@ function useAnimatedCounter(target, duration = 800) {
   return count;
 }
 
-// Turnstile widget
 function TurnstileWidget({ onVerify, onExpire }) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
@@ -78,34 +87,32 @@ function TurnstileWidget({ onVerify, onExpire }) {
   return <div ref={containerRef} />;
 }
 
-// Animated leaderboard row
-function LeaderboardRow({ rep, index, prevTotal }) {
+function LeaderboardRow({ rep, index, prevTotal, theme }) {
+  const T = theme === "light" ? LIGHT : DARK;
   const animatedTotal = useAnimatedCounter(rep.total);
   const change = rep.total - (prevTotal ?? rep.total);
   const pct = rep.maxTotal > 0 ? (rep.total / rep.maxTotal) * 100 : 0;
   const hasStreak = rep.streak >= 3;
-
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 16,
-      background: index === 0 ? `${ACCENT}10` : "#111",
-      border: index === 0 ? `1px solid ${ACCENT}30` : "1px solid #1e1e1e",
+      background: index === 0 ? `${ACCENT}10` : T.surface,
+      border: index === 0 ? `1px solid ${ACCENT}30` : `1px solid ${T.border}`,
       borderRadius: 10, padding: "14px 18px",
-      position: "relative", overflow: "hidden",
-      transition: "all 0.3s ease",
+      position: "relative", overflow: "hidden", transition: "all 0.3s ease",
     }}>
       <div style={{
         position: "absolute", left: 0, top: 0, bottom: 0,
-        width: `${pct}%`, background: index === 0 ? `${ACCENT}08` : "#ffffff04",
+        width: `${pct}%`, background: index === 0 ? `${ACCENT}08` : `${T.text}04`,
         transition: "width 0.8s ease",
       }}/>
       <div style={{
         fontSize: index < 3 ? 20 : 14, minWidth: 32, textAlign: "center",
-        color: index < 3 ? "inherit" : "#444", fontWeight: 700, fontFamily: "'DM Mono', monospace",
+        color: index < 3 ? "inherit" : T.textMuted, fontWeight: 700, fontFamily: "'DM Mono', monospace",
       }}>
         {index < 3 ? MEDAL[index] : `#${index + 1}`}
       </div>
-      <div style={{ flex: 1, fontWeight: 500, fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ flex: 1, fontWeight: 500, fontSize: 15, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>
         {rep.name}
         {hasStreak && (
           <span title={`${rep.streak} week streak!`} style={{ fontSize: 14 }}>
@@ -114,25 +121,65 @@ function LeaderboardRow({ rep, index, prevTotal }) {
         )}
       </div>
       {change !== 0 && (
-        <div style={{
-          fontSize: 11, fontFamily: "'DM Mono', monospace",
-          color: change > 0 ? GREEN : RED,
-          display: "flex", alignItems: "center", gap: 2,
-        }}>
+        <div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: change > 0 ? GREEN : RED, display: "flex", alignItems: "center", gap: 2 }}>
           {change > 0 ? "▲" : "▼"} {Math.abs(change)}
         </div>
       )}
-      <div style={{
-        fontFamily: "'DM Mono', monospace", fontSize: 18,
-        color: index === 0 ? ACCENT : "#F5F5F5", fontWeight: 500,
-      }}>{animatedTotal}</div>
-      <div style={{ fontSize: 11, color: "#444", minWidth: 30, textAlign: "right" }}>pts</div>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 18, color: index === 0 ? ACCENT : T.text, fontWeight: 500 }}>{animatedTotal}</div>
+      <div style={{ fontSize: 11, color: T.textMuted, minWidth: 30, textAlign: "right" }}>pts</div>
+    </div>
+  );
+}
+
+// Mini bar chart for a single activity type
+function ActivityMiniChart({ activityType, entries, reps, theme, fullWidth }) {
+  const T = theme === "light" ? LIGHT : DARK;
+
+  const data = reps.map(r => ({
+    name: r.name.split(" ")[0],
+    total: entries
+      .filter(e => Number(e.rep_id) === Number(r.id) && Number(e.activity_type_id) === Number(activityType.id))
+      .reduce((acc, e) => acc + (Number(e.value) || 0), 0),
+  })).sort((a, b) => b.total - a.total);
+
+  const leader = data[0];
+
+  return (
+    <div style={{
+      background: T.surface, border: `1px solid ${T.border}`,
+      borderRadius: 12, padding: 20,
+      gridColumn: fullWidth ? "1 / -1" : undefined,
+    }}>
+      <div style={{ fontSize: 11, letterSpacing: "0.15em", color: T.textSub, textTransform: "uppercase", marginBottom: 4 }}>
+        {activityType.name}
+      </div>
+      {leader && leader.total > 0 && (
+        <div style={{ fontSize: 12, color: ACCENT, marginBottom: 12, fontWeight: 500 }}>
+          🏆 {leader.name} · {leader.total} pts
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={fullWidth ? 180 : 160}>
+        <BarChart data={data} barSize={fullWidth ? 32 : 18} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+          <XAxis dataKey="name" tick={{ fill: T.textSub, fontSize: fullWidth ? 12 : 10 }} axisLine={false} tickLine={false}/>
+          <YAxis tick={{ fill: T.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}/>
+          <Tooltip
+            contentStyle={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontSize: 12 }}
+            cursor={{ fill: theme === "light" ? "#00000008" : "#ffffff08" }}
+          />
+          <Bar dataKey="total" radius={[4,4,0,0]}>
+            {data.map((entry, i) => (
+              <Cell key={i} fill={i === 0 ? ACCENT : T.chartBg}/>
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
 
 export default function SalesTracker() {
   const [tab, setTab] = useState("entry");
+  const [theme, setTheme] = useState("dark");
   const [reps, setReps] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
   const [entries, setEntries] = useState([]);
@@ -143,17 +190,14 @@ export default function SalesTracker() {
   const [submitMsg, setSubmitMsg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [turnstileToken, setTurnstileToken] = useState(null);
-  const [lastRefresh, setLastRefresh] = useState(new Date());
   const prevLeaderboardRef = useRef([]);
+
+  const T = theme === "light" ? LIGHT : DARK;
 
   useEffect(() => { loadAll(); }, []);
 
-  // Auto-refresh every 60 seconds
   useEffect(() => {
-    const timer = setInterval(() => {
-      loadAll();
-      setLastRefresh(new Date());
-    }, REFRESH_INTERVAL);
+    const timer = setInterval(() => { loadAll(); }, REFRESH_INTERVAL);
     return () => clearInterval(timer);
   }, []);
 
@@ -196,7 +240,6 @@ export default function SalesTracker() {
     }
   }
 
-  // Calculate streak for a rep — consecutive weeks with any submission
   function calcStreak(repId) {
     const weeks = [...new Set(entries
       .filter(e => Number(e.rep_id) === Number(repId))
@@ -249,7 +292,6 @@ export default function SalesTracker() {
     })).sort((a, b) => b.total - a.total);
   }
 
-  // Submission status for current week
   function getSubmissionStatus() {
     const currentWeek = getMondayOfWeek();
     return reps.map(r => {
@@ -268,35 +310,54 @@ export default function SalesTracker() {
   const submissionStatus = getSubmissionStatus();
   const submittedCount = submissionStatus.filter(r => r.submitted).length;
 
+  // Split activity types: first 4 in grid, last one full width
+  const gridActivities = activityTypes.slice(0, 4);
+  const fullWidthActivity = activityTypes[4];
+
+  const TABS = [
+    ["entry", "Log Activities"],
+    ["status", "This Week"],
+    ["dashboard", "Dashboard"],
+    ["activity", "By Activity"],
+    ["leaderboard", "League Table"],
+  ];
+
   return (
-    <div style={{
-      minHeight: "100vh", background: "#0A0A0A", color: "#F5F5F5",
-      fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", paddingBottom: 60,
-    }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", paddingBottom: 60, transition: "background 0.2s, color 0.2s" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
       {/* HEADER */}
       <div style={{
-        borderBottom: "1px solid #222", padding: "24px 32px",
+        borderBottom: `1px solid ${T.border}`, padding: "20px 32px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        position: "sticky", top: 0, background: "#0A0A0A", zIndex: 10,
+        position: "sticky", top: 0, background: T.bg, zIndex: 10,
       }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: "0.2em", color: ACCENT, textTransform: "uppercase", marginBottom: 4 }}>Sales Performance</div>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em" }}>Commit 2 Generate</div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: T.text }}>Commit 2 Generate</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 11, color: "#444", fontFamily: "'DM Mono', monospace" }}>
-            Live · refreshes every 60s
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[["entry","Log Activities"],["status","This Week"],["dashboard","Dashboard"],["leaderboard","League Table"]].map(([key,label]) => (
+          <div style={{ fontSize: 11, color: T.textMuted, fontFamily: "'DM Mono', monospace" }}>Live · 60s refresh</div>
+
+          {/* DARK / LIGHT TOGGLE */}
+          <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} style={{
+            padding: "7px 14px", borderRadius: 6,
+            border: `1px solid ${T.border}`,
+            background: "transparent", color: T.textSub,
+            cursor: "pointer", fontSize: 13, fontFamily: "inherit",
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+          </button>
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {TABS.map(([key, label]) => (
               <button key={key} onClick={() => setTab(key)} style={{
-                padding: "8px 16px", borderRadius: 6,
-                border: tab === key ? `1px solid ${ACCENT}` : "1px solid #333",
+                padding: "8px 14px", borderRadius: 6,
+                border: tab === key ? `1px solid ${ACCENT}` : `1px solid ${T.border}`,
                 background: tab === key ? ACCENT + "18" : "transparent",
-                color: tab === key ? ACCENT : "#888",
+                color: tab === key ? ACCENT : T.textSub,
                 cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "inherit", transition: "all 0.15s",
               }}>{label}</button>
             ))}
@@ -304,9 +365,9 @@ export default function SalesTracker() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
         {loading && (
-          <div style={{ textAlign: "center", color: "#555", padding: 60, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
+          <div style={{ textAlign: "center", color: T.textMuted, padding: 60, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
             Loading data…
           </div>
         )}
@@ -314,49 +375,47 @@ export default function SalesTracker() {
         {/* ENTRY FORM */}
         {!loading && tab === "entry" && (
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>Log your weekly activities</h2>
-            <p style={{ color: "#666", fontSize: 14, marginBottom: 32 }}>Enter the number of each activity completed this week.</p>
+            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4, color: T.text }}>Log your weekly activities</h2>
+            <p style={{ color: T.textSub, fontSize: 14, marginBottom: 32 }}>Enter the number of each activity completed this week.</p>
             <div style={{ display: "grid", gap: 20 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, letterSpacing: "0.15em", color: "#666", textTransform: "uppercase", marginBottom: 8 }}>Your name</label>
+                  <label style={{ display: "block", fontSize: 11, letterSpacing: "0.15em", color: T.textSub, textTransform: "uppercase", marginBottom: 8 }}>Your name</label>
                   <select value={selectedRep} onChange={e => setSelectedRep(e.target.value)} style={{
-                    width: "100%", padding: "12px 14px", background: "#111", border: "1px solid #2a2a2a",
-                    borderRadius: 8, color: selectedRep ? "#F5F5F5" : "#555", fontSize: 14, fontFamily: "inherit",
-                    appearance: "none", cursor: "pointer",
+                    width: "100%", padding: "12px 14px", background: T.surface, border: `1px solid ${T.border2}`,
+                    borderRadius: 8, color: selectedRep ? T.text : T.textSub, fontSize: 14, fontFamily: "inherit", appearance: "none", cursor: "pointer",
                   }}>
                     <option value="">Select your name…</option>
                     {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, letterSpacing: "0.15em", color: "#666", textTransform: "uppercase", marginBottom: 8 }}>Week commencing</label>
+                  <label style={{ display: "block", fontSize: 11, letterSpacing: "0.15em", color: T.textSub, textTransform: "uppercase", marginBottom: 8 }}>Week commencing</label>
                   <input type="date" value={weekCommencing} onChange={e => setWeekCommencing(e.target.value)} style={{
-                    width: "100%", padding: "12px 14px", background: "#111", border: "1px solid #2a2a2a",
-                    borderRadius: 8, color: "#F5F5F5", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box",
+                    width: "100%", padding: "12px 14px", background: T.surface, border: `1px solid ${T.border2}`,
+                    borderRadius: 8, color: T.text, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box",
                   }}/>
                 </div>
               </div>
 
-              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
                 {activityTypes.map((a, i) => (
                   <div key={a.id} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "16px 20px",
-                    borderBottom: i < activityTypes.length - 1 ? "1px solid #1a1a1a" : "none",
+                    display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px",
+                    borderBottom: i < activityTypes.length - 1 ? `1px solid ${T.border2}` : "none",
                   }}>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{a.name}</div>
-                      {a.description && <div style={{ fontSize: 12, color: "#555" }}>{a.description}</div>}
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2, color: T.text }}>{a.name}</div>
+                      {a.description && <div style={{ fontSize: 12, color: T.textSub }}>{a.description}</div>}
                     </div>
                     <input
                       type="number" min="0" placeholder="0"
                       value={formValues[a.id] ?? ""}
                       onChange={e => setFormValues(v => ({ ...v, [a.id]: e.target.value }))}
                       style={{
-                        width: 80, padding: "10px 12px", background: "#0A0A0A",
-                        border: formValues[a.id] !== undefined && formValues[a.id] !== "" ? `1px solid ${ACCENT}55` : "1px solid #2a2a2a",
-                        borderRadius: 8, color: "#F5F5F5", fontSize: 16, fontFamily: "'DM Mono', monospace",
+                        width: 80, padding: "10px 12px", background: T.bg,
+                        border: formValues[a.id] !== undefined && formValues[a.id] !== "" ? `1px solid ${ACCENT}55` : `1px solid ${T.border2}`,
+                        borderRadius: 8, color: T.text, fontSize: 16, fontFamily: "'DM Mono', monospace",
                         textAlign: "center", outline: "none",
                       }}
                     />
@@ -364,13 +423,9 @@ export default function SalesTracker() {
                 ))}
               </div>
 
-              {/* TURNSTILE */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ fontSize: 11, letterSpacing: "0.15em", color: "#666", textTransform: "uppercase" }}>Security check</label>
-                <div style={{
-                  background: "#111", border: "1px solid #1e1e1e", borderRadius: 12,
-                  padding: "16px 20px", display: "flex", alignItems: "center", gap: 16,
-                }}>
+                <label style={{ fontSize: 11, letterSpacing: "0.15em", color: T.textSub, textTransform: "uppercase" }}>Security check</label>
+                <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16 }}>
                   <TurnstileWidget onVerify={(token) => setTurnstileToken(token)} onExpire={() => setTurnstileToken(null)}/>
                   {turnstileToken && <div style={{ fontSize: 12, color: GREEN }}>✓ Verified by Cloudflare Turnstile</div>}
                 </div>
@@ -400,39 +455,34 @@ export default function SalesTracker() {
         {/* THIS WEEK STATUS */}
         {!loading && tab === "status" && (
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>This week's submission status</h2>
-            <p style={{ color: "#666", fontSize: 14, marginBottom: 8 }}>
-              Week commencing {formatWeek(getMondayOfWeek())}
-            </p>
+            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4, color: T.text }}>This week's submission status</h2>
+            <p style={{ color: T.textSub, fontSize: 14, marginBottom: 8 }}>Week commencing {formatWeek(getMondayOfWeek())}</p>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
-              background: "#111", border: "1px solid #1e1e1e", borderRadius: 8,
+              background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8,
               padding: "8px 16px", marginBottom: 24,
             }}>
-              <div style={{ fontSize: 13, color: "#666" }}>Submitted:</div>
+              <div style={{ fontSize: 13, color: T.textSub }}>Submitted:</div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 18, color: submittedCount === reps.length ? GREEN : ACCENT }}>
                 {submittedCount} / {reps.length}
               </div>
             </div>
-
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
               {submissionStatus.map(r => (
                 <div key={r.name} style={{
                   display: "flex", alignItems: "center", gap: 12,
-                  background: r.submitted ? "#14532d22" : "#111",
-                  border: `1px solid ${r.submitted ? "#166534" : "#1e1e1e"}`,
-                  borderRadius: 10, padding: "12px 16px",
-                  transition: "all 0.2s",
+                  background: r.submitted ? "#14532d22" : T.surface,
+                  border: `1px solid ${r.submitted ? "#166534" : T.border}`,
+                  borderRadius: 10, padding: "12px 16px", transition: "all 0.2s",
                 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: "50%",
-                    background: r.submitted ? "#166534" : "#1e1e1e",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 14, flexShrink: 0,
+                    background: r.submitted ? "#166534" : T.border,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0,
                   }}>
                     {r.submitted ? "✓" : "·"}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: r.submitted ? "#F5F5F5" : "#555" }}>{r.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: r.submitted ? T.text : T.textSub }}>{r.name}</div>
                 </div>
               ))}
             </div>
@@ -443,32 +493,32 @@ export default function SalesTracker() {
         {!loading && tab === "dashboard" && (
           <div style={{ display: "grid", gap: 32 }}>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>Activity dashboard</h2>
-              <p style={{ color: "#666", fontSize: 14, marginBottom: 0 }}>Team activity totals across the last 8 weeks.</p>
+              <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4, color: T.text }}>Activity dashboard</h2>
+              <p style={{ color: T.textSub, fontSize: 14 }}>Team activity totals across the last 8 weeks.</p>
             </div>
 
             {weeklyRepChart.length > 0 && (
-              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "#666", textTransform: "uppercase", marginBottom: 4 }}>
+              <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24 }}>
+                <div style={{ fontSize: 11, letterSpacing: "0.15em", color: T.textSub, textTransform: "uppercase", marginBottom: 4 }}>
                   Week of {latestWeek && formatWeek(latestWeek)}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                  <div style={{ fontSize: 15, fontWeight: 500 }}>Total activities by rep</div>
-                  <div style={{ fontSize: 12, color: "#666", display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 20, height: 2, background: "#F97316", borderStyle: "dashed" }}/>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: T.text }}>Total activities by rep</div>
+                  <div style={{ fontSize: 12, color: T.textSub, display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 20, height: 2, background: ACCENT }}/>
                     Target: {WEEKLY_TARGET}
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={weeklyRepChart} barSize={28}>
-                    <XAxis dataKey="name" tick={{ fill: "#666", fontSize: 12 }} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{ fill: "#444", fontSize: 11 }} axisLine={false} tickLine={false}/>
-                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#F5F5F5", fontSize: 13 }} cursor={{ fill: "#ffffff08" }}/>
+                    <XAxis dataKey="name" tick={{ fill: T.textSub, fontSize: 12 }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fill: T.textMuted, fontSize: 11 }} axisLine={false} tickLine={false}/>
+                    <Tooltip contentStyle={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontSize: 13 }} cursor={{ fill: theme === "light" ? "#00000008" : "#ffffff08" }}/>
                     <ReferenceLine y={WEEKLY_TARGET} stroke={ACCENT} strokeDasharray="4 3" strokeWidth={1.5}
                       label={{ value: `Target ${WEEKLY_TARGET}`, position: "insideTopRight", fill: ACCENT, fontSize: 11 }}/>
                     <Bar dataKey="total" radius={[4,4,0,0]}>
                       {weeklyRepChart.map((entry, i) => (
-                        <Cell key={i} fill={entry.total >= WEEKLY_TARGET ? "#22c55e" : i === 0 ? ACCENT : "#2a2a2a"}/>
+                        <Cell key={i} fill={entry.total >= WEEKLY_TARGET ? "#22c55e" : i === 0 ? ACCENT : T.chartBg}/>
                       ))}
                     </Bar>
                   </BarChart>
@@ -477,15 +527,15 @@ export default function SalesTracker() {
             )}
 
             {activityChart.length > 0 && (
-              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "#666", textTransform: "uppercase", marginBottom: 4 }}>Trend</div>
-                <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 20 }}>Activity types over time</div>
+              <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24 }}>
+                <div style={{ fontSize: 11, letterSpacing: "0.15em", color: T.textSub, textTransform: "uppercase", marginBottom: 4 }}>Trend</div>
+                <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 20, color: T.text }}>Activity types over time</div>
                 <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={activityChart}>
-                    <XAxis dataKey="week" tick={{ fill: "#666", fontSize: 12 }} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{ fill: "#444", fontSize: 11 }} axisLine={false} tickLine={false}/>
-                    <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#F5F5F5", fontSize: 12 }} cursor={{ stroke: "#333" }}/>
-                    <Legend wrapperStyle={{ fontSize: 11, color: "#666", paddingTop: 12 }} formatter={v => v.replace(/_/g, " ")}/>
+                    <XAxis dataKey="week" tick={{ fill: T.textSub, fontSize: 12 }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fill: T.textMuted, fontSize: 11 }} axisLine={false} tickLine={false}/>
+                    <Tooltip contentStyle={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontSize: 12 }} cursor={{ stroke: T.border }}/>
+                    <Legend wrapperStyle={{ fontSize: 11, color: T.textSub, paddingTop: 12 }} formatter={v => v.replace(/_/g, " ")}/>
                     {activityTypes.map((a, i) => (
                       <Line key={a.id} type="monotone" dataKey={a.name.replace(/[^a-zA-Z0-9]/g, "_")}
                         stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} activeDot={{ r: 4 }}/>
@@ -496,8 +546,31 @@ export default function SalesTracker() {
             )}
 
             {activityChart.length === 0 && (
-              <div style={{ textAlign: "center", color: "#444", padding: 60, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
+              <div style={{ textAlign: "center", color: T.textMuted, padding: 60, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
                 No data yet — submit some activities first.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* BY ACTIVITY TAB */}
+        {!loading && tab === "activity" && (
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4, color: T.text }}>Activity breakdown</h2>
+            <p style={{ color: T.textSub, fontSize: 14, marginBottom: 24 }}>All-time totals per rep, broken down by each activity type.</p>
+
+            {activityTypes.length === 0 ? (
+              <div style={{ textAlign: "center", color: T.textMuted, padding: 60, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
+                No activity types found.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {gridActivities.map(a => (
+                  <ActivityMiniChart key={a.id} activityType={a} entries={entries} reps={reps} theme={theme} fullWidth={false}/>
+                ))}
+                {fullWidthActivity && (
+                  <ActivityMiniChart key={fullWidthActivity.id} activityType={fullWidthActivity} entries={entries} reps={reps} theme={theme} fullWidth={true}/>
+                )}
               </div>
             )}
           </div>
@@ -506,20 +579,18 @@ export default function SalesTracker() {
         {/* LEADERBOARD */}
         {!loading && tab === "leaderboard" && (
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>League table</h2>
-            <p style={{ color: "#666", fontSize: 14, marginBottom: 32 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 4, color: T.text }}>League table</h2>
+            <p style={{ color: T.textSub, fontSize: 14, marginBottom: 32 }}>
               All-time total activity score · 🔥 = 3+ week streak · ▲▼ = change from last week
             </p>
             <div style={{ display: "grid", gap: 8 }}>
               {leaderboard.map((rep, i) => {
                 const prev = prevLeaderboard.find(p => p.name === rep.name);
-                return (
-                  <LeaderboardRow key={rep.name} rep={rep} index={i} prevTotal={prev?.total}/>
-                );
+                return <LeaderboardRow key={rep.name} rep={rep} index={i} prevTotal={prev?.total} theme={theme}/>;
               })}
             </div>
             {leaderboard.every(r => r.total === 0) && (
-              <div style={{ textAlign: "center", color: "#444", padding: 60, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
+              <div style={{ textAlign: "center", color: T.textMuted, padding: 60, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
                 No activity data yet — start logging!
               </div>
             )}
